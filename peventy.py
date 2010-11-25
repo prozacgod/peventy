@@ -4,13 +4,16 @@ from Queue import Queue
 import time
 import uuid
 
-class StopableThread(threading.Thread):
+class PEventYModuleThread(threading.Thread):
 	"""Python doesn't really have "job" control AFAIK, this helps"""
 	mainThread = threading.currentThread()
 	
-	def __init__(self):
+	def __init__(self, module, event_id):
 		threading.Thread.__init__(self)
 		self.running = True
+		
+		self.mod = module
+		self.event_id = event_id
 		
 	def is_running(self):
 		return self.running and self.mainThread.isAlive()
@@ -18,46 +21,29 @@ class StopableThread(threading.Thread):
 	def stop(self):
 		self.running = False
 
-class TimerThread(StopableThread):
-	def __init__(self, pe, interval, event_id):
-		StopableThread.__init__(self)
-		self.pe = pe
-		self.interval = interval
-		self.event_id = event_id
-		threading.Thread.__init__(self)
-		
-	def run (self):
-		while self.is_running():
-			time.sleep(self.interval)
-			self.pe.postEvent(self.event_id, self)
-					
-	
-class Timer():
+
+class PEventYModule(object):
 	def __init__(self, pe):
 		self.pe = pe
-		self.timers = []
+		self.threads = {}
+
+	def createListenerThread(self, callback, thread, *args):
+		event_id = self.pe.addListener(callback)
+		self.threads[event_id] = thread(self.pe, event_id, *args)
+		self.threads[event_id].start()
 		
-	def onTimer(self, delay):
-		def onTimerProxy(func):	
-			print "add timer:", delay
-			event_id = self.pe.addListener(func)
-			self.createTimerThread(delay, event_id)
-						
-		return onTimerProxy
-		
-	def createTimerThread(self, delay, event_id):
-		self.timers += [TimerThread(self.pe, delay/1000.0, event_id)]
-		self.timers[-1].start()
-		
+	def postEvent(self, event_id, *args):
+		self.pe.postEvent(self.event_id, *args)
+		self.threads[event_id].join()
+		del self.threads[event_id]
+
 
 class PEventY(object):
 	def __init__(self):
 		self.events = Queue()
 		self.listeners = {}
-		
-		self.lib = {}
-		self.lib['timer'] = Timer(self)
-	
+		self.libraries = {}
+
 	# should this only ever be called by the main thread ???
 	def addListener(self, callback):
 		event_id = str(uuid.uuid4())
@@ -67,6 +53,10 @@ class PEventY(object):
 	# Must be thread safe!!!
 	def postEvent(self, *args):
 		self.events.put(args)
+		
+	def registerLibrary(self, name, klass):
+		self.libraries[name] = klass(self)
+		return self.libraries[name]
 		
 	def run(self):
 		while len(self.listeners):
@@ -80,23 +70,8 @@ class PEventY(object):
 				self.listeners[event_id](*args)
 			else:
 				print "Event missfire"
-			
 
-def main():
-	peventy = PEventY()
-	evented_code(peventy.lib['timer'])
+
+peventy = PEventY()
+def run():
 	peventy.run()
-
-
-def evented_code(timer):
-	""" this code here more or less should act similarly to node.js in that everything is an event"""
-	count = [0]
-	@timer.onTimer(1000)
-	def timerTest(event):
-		print "Test", count[0]
-		count[0] += 1
-		return True
-
-	
-if __name__ == "__main__":
-	main()
