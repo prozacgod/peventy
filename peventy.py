@@ -29,7 +29,7 @@ class TimerThread(StopableThread):
 	def run (self):
 		while self.is_running():
 			time.sleep(self.interval)
-			self.pe.eventReply(self.event_id, self)
+			self.pe.postEvent(self.event_id, self)
 					
 	
 class Timer():
@@ -65,7 +65,7 @@ class PEventY(object):
 		return event_id
 		
 	# Must be thread safe!!!
-	def eventReply(self, *args):
+	def postEvent(self, *args):
 		self.events.put(args)
 		
 	def run(self):

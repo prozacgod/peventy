@@ -1,0 +1,24 @@
+This is a proof of concept system for an event/callback system similar to
+node.js in pure python
+
+This is part of my release more code ambition, when I go off on a tangent, that
+I'll never finish I want the world to have them!
+
+currently this example implements:
+*	event loop
+*	adding event handlers
+*	posting events
+*	a timer event!!
+
+does not implement a proper shutdown (you may still have to kill the process)
+event listeners don't get removed, and the get from queue is a blocking call,
+so ... fix it ;)
+
+TODO: 
+*	figure out how to "unblock" queue.get (perhaps posting a fake message to it, like "quit") and detecting this?
+*	fix time.sleep in the timer - cause if an interval needs 1000 seconds to fulfull, you may have to wait for that length of time to exit the damned app
+*	make the timer callback function's return value cancel or leave the timer intact ... ? confuses me at the moment :D
+
+
+
+
